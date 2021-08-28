@@ -1,0 +1,518 @@
+<html><link type="text/css" id="dark-mode" rel="stylesheet" href=""><style type="text/css" id="dark-mode-custom-style"></style><head>
+    <style type="text/css">
+        img {
+            max-width: 500px;
+        }
+        li {
+            list-style-type: none;
+        }
+        h1 {
+            line-height: 40%;
+            line-break: normal;
+        }
+        h2 {
+            line-height: 40%;
+        }
+        p {
+            line-height: 95%;
+            text-indent: 8px;
+            margin: 0;
+        }
+
+        .constant-scale {
+            width: 400px;
+        }
+
+        .center {
+            text-align: center;
+            padding: 3%;
+        }
+        .center p {
+            text-align: center; 
+        }
+
+        .cell {
+            display: inline-block;
+            text-align: center;
+            margin: 8px;
+        }
+        #side-by-side {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+    </style>
+    <title>CS 194-26 Project 1: Colorization</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+</head>
+
+<body style="padding: 1%;">
+
+    <div id="side-by-side">
+        <div>
+            <div class="center">
+                <h1 style="font-size: x-large; line-height: 40%;"> Images of the Russian Empire: <i>Colorizing the Prokudin-Gorskii photo collection</i> </h1>
+                <p><b>COMPSCI 194-26</b>: <i>Computational Photography & Computer Vision</i></p>
+                <p>Professors Alyosha Efros & Angjoo Kanazawa</p>
+                <p>August 26th, 2021</p>
+                <p>Nick Kisel</p>
+            </div>
+        
+            
+            <h2>Overview</h2>
+            <p>
+                The digitized Prokudin-Gorskii glass plate image collection, hosted by the Library of Congress.
+                While the negatives are shot from almost exactly the same position and angle by design of the camera, 
+                the three negatives are each scanned at a slightly different position and rotation, resulting in subtle misalignments of the combined color image. 
+                By cutting the image into three equally sized parts, then shifting each negative by some (x, y) offset, recreating a full color image is possible.
+            </p>
+
+            <h2>Approach</h2>
+            <p> <b>Align & color the three filtered components using blue as the base color. </b> </p>
+            <br style="line-height:18%;">
+            <p>
+                Three color channel images are extracted from the glass plate negative image by splitting it vertically into three parts of equal length. To align the three channels, I calculate the optimal displacements of the channels along the x and y axis.
+                I searched over displacements in a 30 pixel wide interval on the x & y axes, scored each one using SSD, and aligned the images using the displacement with the lowest score. 
+            </p>
+
+            <br>
+
+            <p> <b> Test different alignment strategies that fit the components together most clearly, and ignore borders & blotches. </b></p>
+            <br style="line-height:18%;">
+            <p>
+                First, I discarded the outer twelfth of each image to prevent matching the borders and minimizing the effect of markings & dirt on either side.
+                For smaller images with a width less than 400 pixels, I searched a space of 900 square pixels (a 30x30 range) for the best match.
+            </p>
+
+            <br style="line-height:18%;">
+            
+            <p>
+                As for larger images, I used an image pyramid to recursively resize and align progressively larger versions of an image, such that
+                each progressively larger image was four times more finely aligned with the original. Each time an image was resized up, it would be re-aligned
+                in accordance with the aforementioned displacement formula over a range of just 100 square pixels (a 10x10 range around the original scale estimate for the rescaled image).
+                The quick and efficient alignment of the smaller versions of the image serve to make aligning each taller & wider resize more accurate. 
+            </p>
+
+            <br style="line-height:18%;">
+
+            <p>
+                Additionally, you'll read about an edge-detection strategy that I included to improve alignment accuracy on sharp images!
+            </p>
+        </div>
+        <div style="margin-left: 2%; max-width: 20%;">
+            <img src="in/cathedral.jpg" alt="Cathedral, source" style="max-width: 225px;">
+        </div>
+    </div>
+
+    <hr>
+
+    <h2>Results</h2>
+
+    <h3>SSD & NCC matching</h3>
+
+    <p>
+        This just lines up color channels in 900 different ways and outputs the result of the best match based on colors in the image. It looks great!
+    </p>
+
+    <div class="cell">
+    <h4>Cathedral</h4>
+    <img src="out_p2/cathedral.jpg.jpg" alt="Cathedral">
+    <p>Green: (+5, -1)   Red: (+11, -1)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+    <h4>Monastery</h4>
+    <img src="out_p2/monastery.jpg.jpg" alt="Monastery">
+    <p>Green: (-3, +1)   Red: (+3, +2)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+    <h4>Tobolsk</h4>
+    <img src="out_p2/tobolsk.jpg.jpg" alt="Tobolsk">
+    <p>Green: (+3, +2)   Red: (+6, +3)</p>
+    <br>
+    </div>
+
+    <h3>Pyramid strategy & examples</h3>
+
+    <p> The <i>image pyramid</i> strategy I used for most images decreased the scale 
+        of the input image by four per iteration, saving the intermediate photos.
+
+        Starting from the smallest image, the different channels are aligned,
+        and an "absolute offset" on the original image is estimated from the offset obtained from alignment.
+        As a result, the estimate of the absolute offset becomes four times more
+        fine for every alignment of intermediate images.
+    </p>
+
+    <p>
+        Unsatisfied with some of the results which produced afterimages - particularly,
+        <i>Lady</i>, where the red channel's slight left shift causes the eyes to look
+        sleepy, I narrowed the search to just the inner ten twelfths of the image such
+        that the borders weren't included in calculating the difference.
+    </p>
+
+    <div>
+        <div id="side-by-side">
+            <div class="cell">
+                <h4>Emir, 58x50</h4>
+                <img src="example/emir_50.jpg" alt="Emir, 50px" class="constant-scale">
+                <p>Green: (0, 0)
+                Red: (128, 0)</p>
+            </div>
+            <div class="cell">
+                <h4>Emir, 231x200</h4>
+                <img src="example/emir_200.jpg" alt="Emir, 200px" class="constant-scale">
+                <p>Green: (0, 0)
+                Red: (112, 16)</p>
+            </div>
+            <div class="cell">
+                <h4>Emir, 924x801</h4>
+                <img src="example/emir_802.jpg" alt="Emir, 800px" class="constant-scale">
+                <p>Green: (-4, 8)
+                Red: (108, 16)</p>
+            </div>
+            <div class="cell">
+                <h4>Emir</h4>
+                <img src="out/emir.tif.jpg" alt="Emir" class="constant-scale">
+                <p>Green: (-3, 7)
+                   Red: (107, 17)</p>
+            </div>
+
+        </div>
+
+        <div id="side-by-side">
+            <p style="margin: 0px">The following <b>steps</b> describe the estimated position of the green & red channels relative to the blue channel as you scale the image up in size. Scale 1 shows the final estimate.</p>
+
+            <ul>Scale
+                <li>1 / 64</li>
+                <li>1 / 16</li>
+                <li>1 / 4</li>
+                <li>1 </li>
+            </ul>
+            <ul>Green:
+                <li>(0, 0)</li>
+                <li>(0, 0)</li>
+                <li>(-4, 8)</li>
+                <li>(-3, 7)</li>
+            </ul>
+            <ul>
+            Red:
+                <li>(128, 0)</li>
+                <li>(112, 16)</li>
+                <li>(108, 16)</li>
+                <li>(107, 17)</li>
+           </ul>
+        </div>
+
+    </div>    
+    <br>
+    </div>
+    
+
+    <div class="cell">
+        <h4>Onion Church</h4>
+        <img src="out/onion_church.tif.jpg" alt="Onion Church">
+        <p>Green: (52, 22)
+           Red: (108, 35)</p>
+    <div id="side-by-side">
+        <ul>Scale
+            <li>1 / 64</li>
+            <li>1 / 16</li>
+            <li>1 / 4</li>
+            <li>1 </li>
+        </ul>
+        <ul>Green:
+            <li>(64, 0)</li>
+            <li>(64, 0)</li>
+            <li>(52, 24)</li>
+            <li>(52, 22)</li>
+        </ul>
+        <ul>
+        Red:
+            <li>(128, 0)</li>
+            <li>(112, 32)</li>
+            <li>(108, 36)</li>
+            <li>(108, 35)</li>
+       </ul>
+    </div>
+    <br>
+    </div>
+
+    
+    <h3>Large Images</h3>
+
+    <div class="cell">
+    <h4>Emir</h4>
+    <img src="out_p2/emir.tif.jpg" alt="Emir">
+    <p>Green: (+46, +9)   Red: (+99, +17)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+    <h4>Harvesters</h4>
+    <img src="out_p2/harvesters.tif.jpg" alt="Harvesters">
+    <p>Green: (+59, +11)   Red: (+124, +9)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+    <h4>Icon</h4>
+    <img src="out_p2/icon.tif.jpg" alt="Icon">
+    <p>Green: (+41, +16)   Red: (+90, +22)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+        <h4>Melons</h4>
+        <img src="out_p2/melons.tif.jpg" alt="Melons">
+        <p>Green: (+80, +4)   Red: (+178, +8)</p>
+        <br>
+    </div>
+
+    <div class="cell">
+    <h4>Monastery</h4>
+    <img src="out_p2/monastery.jpg.jpg" alt="Monastery">
+    <p>Green: (-3, +1)   Red: (+3, +2)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+        <h4>Lady</h4>
+        <img src="out_p2/lady.tif.jpg" alt="Lady">
+        <p>Green: (+57, -6)   Red: (+117, -16)</p>
+        <br>
+    </div>
+
+    <div class="cell">
+        <h4>Onion Church</h4>
+        <img src="out_p2/onion_church.tif.jpg" alt="Onion Church">
+        <p>Green: (+52, +23)   Red: (+108, +35)</p>
+        <br>
+    </div>
+
+    <div class="cell">
+    <h4>Self-portrait</h4>
+    <img src="out_p2/self_portrait.tif.jpg" alt="Self-portrait">
+    <p>Green: (+77, -1)   Red: (+174, -2)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+    <h4>Three generations</h4>
+    <img src="out_p2/three_generations.tif.jpg" alt="Three generations">
+    <p>Green: (+52, +6)   Red: (+111, +8)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+        <h4>Tobolsk</h4>
+        <img src="out_p2/tobolsk.jpg.jpg" alt="Tobolsk">
+        <p>Green: (+3, +2)   Red: (+6, +3)</p>
+        <br>
+    </div>
+
+    <div class="cell">
+    <h4>Train</h4>
+    <img src="out_p2/train.tif.jpg" alt="Train">
+    <p>Green: (+41, -2)   Red: (+91, +2)</p>
+    <br>
+    </div>
+
+    <div class="cell">
+    <h4>Workshop</h4>
+    <img src="out_p2/workshop.tif.jpg" alt="Workshop">
+    <p>Green: (+52, -4)   Red: (+104, -14)</p>
+    <br>
+    </div>
+
+
+    <h2>Results</h2>
+    <p>
+        The pyramid algorithm works well for most images, coming within a few pixels of an exact match for most objects if not perfectly matching them.
+        There were some evident difficulties with <i>lady</i>, on which the red channel consistently aligned several pixels to the left of the other two channels, and ended up blurring the image around the lady's head.
+        The same can be said for <i>self-portrait</i>, which struggles with similarly-colored details such as trees, rocks, and bushes.
+    </p>
+
+    <hr>
+
+    <h2>Bells and Whistles</h2>
+
+    <h3>Edge Detection</h3>
+    <p>
+        Using <code>skimage.transform</code>, I used the <code>roberts()</code> edge detection algorithm to trace each of the three negatives before comparing them.
+        The edge detection approach works <i>wonders</i> on sharp images with distinct corners, such as <code>train</code>, <code>workshop</code>, <code>onion_church</code>, & <code>emir</code>.
+        Of course, applying this filter has its tradeoffs: smoother images - namely <code>lady</code> - were disrupted and blurred as a result.
+        Some images, like <code>three_generations</code>, include some sharp corners but less-sharp focal points - thus, the three family members are defocused,
+        but the fence is well-aligned.
+    </p>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Train: Before</h4>
+        <img src="out_p2/train.tif.jpg" alt="Train">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Train, edge detection</h4>
+        <img src="out_ec/train.tif.jpg" alt="Train, edge detection">
+        <br>
+        </div>
+    </div>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Emir</h4>
+        <img src="out_p2/emir.tif.jpg" alt="Emir">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Onion Church, edge detection</h4>
+        <img src="out_ec/emir.tif.jpg" alt="Emir, edge detection">
+        <br>
+        </div>
+    </div>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Onion Church</h4>
+        <img src="out_p2/onion_church.tif.jpg" alt="Onion Church">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Onion Church, edge detection</h4>
+        <img src="out_ec/onion_church.tif.jpg" alt="Onion Church, edge detection">
+        <br>
+        </div>
+    </div>
+
+    <p>
+        Of course, applying this filter has its tradeoffs: smoother images - namely <code>lady</code> - were disrupted and blurred as a result.
+        Some images, like <code>three_generations</code>, include some sharp corners but less-sharp focal points - thus, the three family members are defocused,
+        but the fence is well-aligned.
+    </p>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Lady</h4>
+        <img src="out_p2/lady.tif.jpg" alt="Lady">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Lady, edge detection</h4>
+        <img src="out_ec/lady.tif.jpg" alt="Lady, edge detection">
+        <br>
+        </div>
+    </div>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Onion Church</h4>
+        <img src="out_p2/three_generations.tif.jpg" alt="Onion Church">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Onion Church, edge detection</h4>
+        <img src="out_ec/three_generations.tif.jpg" alt="Onion Church, edge detection">
+        <br>
+        </div>
+    </div>
+
+
+    <h3>Auto-contrasting</h3>
+    <p>
+        To improve the contrast and make the photos take up the whole, I added a preprocessing step:
+        <code>skimage.exposure.equalize_hist</code>, which spreads out colors that are particularly prevalent in an image. 
+        In particular, this improved the color of the sky and other washed-out whites in most images.
+        Delightfully, in addition to improving the color, this caused <i>self portrait</i> to line up perfectly without edge detection!
+        I suspect this is because a lot of similar colors appear next to each other, and end up neither being classified as edges nor
+        having a large impact on the SSD sum otherwise. Also notice the well-differentiated tree colors in the scenic background.
+    </p>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Self Portrait</h4>
+        <img src="out_p2/self_portrait.tif.jpg" alt="Self Portrait: original">
+        <br>
+        </div>
+    
+
+        <div class="cell">
+        <h4>Self Portrait, contrast</h4>
+        <img src="out_contrast/self_portrait.tif.jpg" alt="Self Portrait: contrast">
+        <br>
+        </div>
+    </div>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Train</h4>
+        <img src="out_p2/train.tif.jpg" alt="Train">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Train, contrast</h4>
+        <img src="out_contrast/train.tif.jpg" alt="Train: contrast">
+        <br>
+        </div>
+    </div>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Onion Church, edge detection</h4>
+        <img src="out_ec/onion_church.tif.jpg" alt="Onion Church, edge detection">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Onion Church, contrast</h4>
+        <img src="out_contrast/onion_church.tif.jpg" alt="Onion Church, contrast">
+        <br>
+        </div>
+    </div>
+
+    <br>
+    <p>
+        You'll notice more vivid colors and blemishes on some re-contrasted images. 
+    </p>
+    <p>
+        Beauty is in the eye of the beholder. It's up to <i>you</i> whether this is welcome change.
+    </p>
+
+    <div id="side-by-side">
+        <div class="cell">
+        <h4>Monastery</h4>
+        <img src="out_p2/monastery.jpg.jpg" alt="Monastery">
+        <br>
+        </div>
+
+        <div class="cell">
+        <h4>Monastery, contrast</h4>
+        <img src="out_contrast/monastery.jpg.jpg" alt="Monastery: contrast">
+        <br>
+        </div>
+    </div>
+
+    <br>
+    <p>Namely, these pictures became distinctly <i>purple</i>:</p>
+
+    <div class="cell">
+        <h4>Church, contrast</h4>
+        <img src="out_contrast/church.tif.jpg" alt="Church: contrast">
+        <br>
+    </div>
+
+    <div class="cell">
+        <h4>Emir, contrast</h4>
+        <img src="out_contrast/emir.tif.jpg" alt="Emir: contrast">
+        <br>
+    </div>
+
+</body></html>
