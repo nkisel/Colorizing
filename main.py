@@ -48,9 +48,8 @@ def align(src, dst, window = 15):
     """
     displacements = []
     best_d = np.inf
-    # Consider resizing from absolute 30-width displacement to image size based displacement
-    for y in range(-window, window, 1): # For each column in the image,
-        for x in range(-window, window, 1): # For each row in the image,
+    for y in range(-window, window, 1): # For each row in the window,
+        for x in range(-window, window, 1): # For each column in the window,
             d = displacement(src, dst, x, y, cc_func=ssd)
             if d < best_d:
                 best_d = d
@@ -131,11 +130,13 @@ def process_inputs(edge_detect = False, increase_contrast = False):
         # compute the height of each part (just 1/3 of total)
         height = np.floor(im.shape[0] / 3.0).astype(int)
 
-        # separate color channels
+        # Separate color channels.
         b = im[:height]
         g = im[height: 2*height]
         r = im[2*height: 3*height]
 
+        # When edge detection is on, perform edge detection on the three slices,
+        # saving the original image.
         if edge_detect:
             orig_b = b
             orig_g = g
@@ -144,9 +145,12 @@ def process_inputs(edge_detect = False, increase_contrast = False):
             g = roberts(g)
             r = roberts(r)
 
+        # Perform the pyramid algorithm or naive matching, based on image size.
         ag, green_x, green_y = pyramid(b, g)
         ar, red_x, red_y = pyramid(b, r)
 
+        # If edge detection is on, apply the best x and y offsets to the original,
+        # rather than the edge-detected image.
         if edge_detect:
             b = orig_b
             ag = np.roll(orig_g, int(green_x), axis=0)
@@ -161,6 +165,7 @@ def process_inputs(edge_detect = False, increase_contrast = False):
         fname = './out/{0}.jpg'.format(file)
         skio.imsave(fname, im_out)
 
+        # Prints optimal offsets for each image. 
         print("Processed {:>22}   Green: ({:+}, {:+})   Red: ({:+}, {:+})"\
             .format(file,
                     int(green_x), int(green_y),
