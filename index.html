@@ -427,8 +427,8 @@
 
     <h3>Auto-contrasting</h3>
     <p>
-        To improve the contrast and make the photos take up the whole, I added a preprocessing step:
-        <code>skimage.exposure.equalize_hist</code>, which spreads out colors that are particularly prevalent in an image. 
+        To improve contrast and utilize the whole color spectrum, I added a preprocessing step:
+        <code>skimage.exposure.equalize_hist</code>, which differentiates colors that are particularly prevalent in an image. 
         In particular, this improved the color of the sky and other washed-out whites in most images.
         Delightfully, in addition to improving the color, this caused <i>self portrait</i> to line up perfectly without edge detection!
         I suspect this is because a lot of similar colors appear next to each other, and end up neither being classified as edges nor
